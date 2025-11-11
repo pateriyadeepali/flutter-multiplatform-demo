@@ -13,7 +13,7 @@ env:
   VERSION: v${{ github.run_number }}
 
 jobs:
-  # 🧩 Linux Desktop Build
+  # Linux Desktop Build
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -52,7 +52,7 @@ jobs:
         run: aws s3 cp linux_app_${{ env.VERSION }}.zip s3://${{ env.S3_BUCKET }}/linux/${{ env.VERSION }}/linux_app.zip --acl private
 
 
-  # 🧩 Android APK Build
+  # Android APK Build
   build-android:
     runs-on: ubuntu-latest
     steps:
@@ -83,7 +83,7 @@ jobs:
         run: aws s3 cp build/app/outputs/flutter-apk/app-release.apk s3://${{ env.S3_BUCKET }}/android/${{ env.VERSION }}/app-release.apk --acl private
 
 
-  # 🧩 Web Build (FIXED — Removed ACL flag)
+  # Web Build 
   build-web:
     runs-on: ubuntu-latest
     steps:
@@ -115,7 +115,7 @@ jobs:
           aws s3 sync build/web s3://${{ env.S3_BUCKET }}/web/${{ env.VERSION }}/ --delete
 
 
-  # 🧩 Windows Desktop Build (FIXED — Correct path)
+  # Windows Desktop Build 
   build-windows:
     runs-on: windows-latest
     steps:
@@ -149,7 +149,7 @@ jobs:
         run: aws s3 cp windows_app_${{ env.VERSION }}.zip s3://${{ env.S3_BUCKET }}/windows/${{ env.VERSION }}/windows_app.zip --acl private
 
 
-  # 🧩 macOS Desktop Build
+  # macOS Desktop Build
   build-macos:
     runs-on: macos-latest
     steps:
