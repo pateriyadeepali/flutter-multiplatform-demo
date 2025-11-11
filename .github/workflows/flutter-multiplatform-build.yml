@@ -11,7 +11,7 @@ env:
   S3_BUCKET: flutter-apk-deepali-2712
 
 jobs:
-  #  Linux Desktop Build
+  # 🧩 Linux Desktop Build
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -21,7 +21,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.3'
+          flutter-version: '3.35.6'
           channel: 'stable'
           architecture: x64
 
@@ -45,7 +45,7 @@ jobs:
         run: aws s3 cp linux_app.zip s3://${{ env.S3_BUCKET }}/linux/linux_app.zip --acl private
 
 
-  #  Android APK Build
+  # 🧩 Android APK Build
   build-android:
     runs-on: ubuntu-latest
     steps:
@@ -55,7 +55,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.3'
+          flutter-version: '3.35.6'
           channel: 'stable'
           architecture: x64
 
@@ -76,7 +76,7 @@ jobs:
         run: aws s3 cp build/app/outputs/flutter-apk/app-release.apk s3://${{ env.S3_BUCKET }}/android/app-release.apk --acl private
 
 
-  #  Web Build
+  # 🧩 Web Build
   build-web:
     runs-on: ubuntu-latest
     steps:
@@ -86,7 +86,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.3'
+          flutter-version: '3.35.6'
           channel: 'stable'
           architecture: x64
 
@@ -107,7 +107,7 @@ jobs:
         run: aws s3 sync build/web s3://${{ env.S3_BUCKET }}/web/ --acl public-read --follow-symlinks
 
 
-  #  Windows Desktop Build
+  # 🧩 Windows Desktop Build
   build-windows:
     runs-on: windows-latest
     steps:
@@ -117,7 +117,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.3'
+          flutter-version: '3.35.6'
           channel: 'stable'
           architecture: x64
 
@@ -141,7 +141,7 @@ jobs:
         run: aws s3 cp windows_app.zip s3://${{ env.S3_BUCKET }}/windows/windows_app.zip --acl private
 
 
-  # macOS Desktop Build
+  # 🧩 macOS Desktop Build
   build-macos:
     runs-on: macos-latest
     steps:
@@ -151,7 +151,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.3'
+          flutter-version: '3.35.6'
           channel: 'stable'
           architecture: x64
 
