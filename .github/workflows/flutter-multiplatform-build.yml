@@ -83,7 +83,7 @@ jobs:
         run: aws s3 cp build/app/outputs/flutter-apk/app-release.apk s3://${{ env.S3_BUCKET }}/android/${{ env.VERSION }}/app-release.apk --acl private
 
 
-  # 🧩 Web Build
+  # 🧩 Web Build (FIXED — Removed ACL flag)
   build-web:
     runs-on: ubuntu-latest
     steps:
@@ -111,10 +111,11 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Upload Web build to S3
-        run: aws s3 sync build/web s3://${{ env.S3_BUCKET }}/web/${{ env.VERSION }}/ --acl public-read --follow-symlinks
+        run: |
+          aws s3 sync build/web s3://${{ env.S3_BUCKET }}/web/${{ env.VERSION }}/ --delete
 
 
-  # 🧩 Windows Desktop Build
+  # 🧩 Windows Desktop Build (FIXED — Correct path)
   build-windows:
     runs-on: windows-latest
     steps:
@@ -135,7 +136,7 @@ jobs:
         run: flutter build windows --release
 
       - name: Compress Windows build
-        run: Compress-Archive -Path build/windows/runner/Release -DestinationPath windows_app_${{ env.VERSION }}.zip
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath windows_app_${{ env.VERSION }}.zip
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
