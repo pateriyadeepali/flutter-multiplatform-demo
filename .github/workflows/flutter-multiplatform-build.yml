@@ -9,6 +9,8 @@ on:
 env:
   AWS_REGION: ap-south-1
   S3_BUCKET: flutter-apk-deepali-2712
+  FLUTTER_VERSION: '3.35.6'
+  VERSION: v${{ github.run_number }}
 
 jobs:
   # 🧩 Linux Desktop Build
@@ -21,18 +23,23 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.6'
-          channel: 'stable'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
           architecture: x64
 
-      - name: Install dependencies
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+
+      - name: Install Flutter dependencies
         run: flutter pub get
 
       - name: Build Linux release
         run: flutter build linux --release
 
       - name: Zip Linux build
-        run: zip -r linux_app.zip build/linux/x64/release/bundle/
+        run: zip -r linux_app_${{ env.VERSION }}.zip build/linux/x64/release/bundle/
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -42,7 +49,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Upload Linux build to S3
-        run: aws s3 cp linux_app.zip s3://${{ env.S3_BUCKET }}/linux/linux_app.zip --acl private
+        run: aws s3 cp linux_app_${{ env.VERSION }}.zip s3://${{ env.S3_BUCKET }}/linux/${{ env.VERSION }}/linux_app.zip --acl private
 
 
   # 🧩 Android APK Build
@@ -55,11 +62,11 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.6'
-          channel: 'stable'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
           architecture: x64
 
-      - name: Install dependencies
+      - name: Install Flutter dependencies
         run: flutter pub get
 
       - name: Build Android release APK
@@ -73,7 +80,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Upload Android APK to S3
-        run: aws s3 cp build/app/outputs/flutter-apk/app-release.apk s3://${{ env.S3_BUCKET }}/android/app-release.apk --acl private
+        run: aws s3 cp build/app/outputs/flutter-apk/app-release.apk s3://${{ env.S3_BUCKET }}/android/${{ env.VERSION }}/app-release.apk --acl private
 
 
   # 🧩 Web Build
@@ -86,11 +93,11 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.6'
-          channel: 'stable'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
           architecture: x64
 
-      - name: Install dependencies
+      - name: Install Flutter dependencies
         run: flutter pub get
 
       - name: Build Web release
@@ -104,7 +111,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Upload Web build to S3
-        run: aws s3 sync build/web s3://${{ env.S3_BUCKET }}/web/ --acl public-read --follow-symlinks
+        run: aws s3 sync build/web s3://${{ env.S3_BUCKET }}/web/${{ env.VERSION }}/ --acl public-read --follow-symlinks
 
 
   # 🧩 Windows Desktop Build
@@ -117,18 +124,18 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.6'
-          channel: 'stable'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
           architecture: x64
 
-      - name: Install dependencies
+      - name: Install Flutter dependencies
         run: flutter pub get
 
       - name: Build Windows release
         run: flutter build windows --release
 
       - name: Compress Windows build
-        run: Compress-Archive -Path build/windows/runner/Release -DestinationPath windows_app.zip
+        run: Compress-Archive -Path build/windows/runner/Release -DestinationPath windows_app_${{ env.VERSION }}.zip
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -138,7 +145,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Upload Windows build to S3
-        run: aws s3 cp windows_app.zip s3://${{ env.S3_BUCKET }}/windows/windows_app.zip --acl private
+        run: aws s3 cp windows_app_${{ env.VERSION }}.zip s3://${{ env.S3_BUCKET }}/windows/${{ env.VERSION }}/windows_app.zip --acl private
 
 
   # 🧩 macOS Desktop Build
@@ -151,18 +158,18 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.6'
-          channel: 'stable'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
           architecture: x64
 
-      - name: Install dependencies
+      - name: Install Flutter dependencies
         run: flutter pub get
 
       - name: Build macOS release
         run: flutter build macos --release
 
       - name: Zip macOS build
-        run: zip -r macos_app.zip build/macos/Build/Products/Release/
+        run: zip -r macos_app_${{ env.VERSION }}.zip build/macos/Build/Products/Release/
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -172,4 +179,4 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Upload macOS build to S3
-        run: aws s3 cp macos_app.zip s3://${{ env.S3_BUCKET }}/macos/macos_app.zip --acl private
+        run: aws s3 cp macos_app_${{ env.VERSION }}.zip s3://${{ env.S3_BUCKET }}/macos/${{ env.VERSION }}/macos_app.zip --acl private
