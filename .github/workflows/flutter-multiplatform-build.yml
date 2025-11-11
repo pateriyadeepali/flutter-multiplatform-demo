@@ -21,7 +21,9 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
+          flutter-version: '3.24.3'
+          channel: 'stable'
+          architecture: x64
 
       - name: Install dependencies
         run: flutter pub get
@@ -53,7 +55,9 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
+          flutter-version: '3.24.3'
+          channel: 'stable'
+          architecture: x64
 
       - name: Install dependencies
         run: flutter pub get
@@ -82,7 +86,9 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
+          flutter-version: '3.24.3'
+          channel: 'stable'
+          architecture: x64
 
       - name: Install dependencies
         run: flutter pub get
@@ -101,7 +107,7 @@ jobs:
         run: aws s3 sync build/web s3://${{ env.S3_BUCKET }}/web/ --acl public-read --follow-symlinks
 
 
-  # Windows Desktop Build
+  #  Windows Desktop Build
   build-windows:
     runs-on: windows-latest
     steps:
@@ -111,7 +117,9 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
+          flutter-version: '3.24.3'
+          channel: 'stable'
+          architecture: x64
 
       - name: Install dependencies
         run: flutter pub get
@@ -143,7 +151,9 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
+          flutter-version: '3.24.3'
+          channel: 'stable'
+          architecture: x64
 
       - name: Install dependencies
         run: flutter pub get
