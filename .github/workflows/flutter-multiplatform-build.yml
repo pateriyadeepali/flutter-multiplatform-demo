@@ -11,7 +11,7 @@ env:
   S3_BUCKET: flutter-apk-deepali-2712
 
 jobs:
-  # Linux Desktop Build
+  #  Linux Desktop Build
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -32,19 +32,18 @@ jobs:
       - name: Zip Linux build
         run: zip -r linux_app.zip build/linux/x64/release/bundle/
 
-      - name: Upload to S3 (Linux)
-        uses: aws-actions/s3-sync@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          args: --acl private --follow-symlinks
-        env:
-          AWS_S3_BUCKET: ${{ env.S3_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ env.AWS_REGION }}
-          SOURCE_DIR: .
-          DEST_DIR: linux/
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-  # Android APK Build
+      - name: Upload Linux build to S3
+        run: aws s3 cp linux_app.zip s3://${{ env.S3_BUCKET }}/linux/linux_app.zip --acl private
+
+
+  #  Android APK Build
   build-android:
     runs-on: ubuntu-latest
     steps:
@@ -62,17 +61,16 @@ jobs:
       - name: Build Android release APK
         run: flutter build apk --release
 
-      - name: Upload APK to S3
-        uses: aws-actions/s3-sync@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          args: --acl private --follow-symlinks
-        env:
-          AWS_S3_BUCKET: ${{ env.S3_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ env.AWS_REGION }}
-          SOURCE_DIR: build/app/outputs/flutter-apk/
-          DEST_DIR: android/
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload Android APK to S3
+        run: aws s3 cp build/app/outputs/flutter-apk/app-release.apk s3://${{ env.S3_BUCKET }}/android/app-release.apk --acl private
+
 
   #  Web Build
   build-web:
@@ -92,17 +90,16 @@ jobs:
       - name: Build Web release
         run: flutter build web --release
 
-      - name: Upload Web build to S3
-        uses: aws-actions/s3-sync@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          args: --acl public-read --follow-symlinks
-        env:
-          AWS_S3_BUCKET: ${{ env.S3_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ env.AWS_REGION }}
-          SOURCE_DIR: build/web
-          DEST_DIR: web/
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload Web build to S3
+        run: aws s3 sync build/web s3://${{ env.S3_BUCKET }}/web/ --acl public-read --follow-symlinks
+
 
   # Windows Desktop Build
   build-windows:
@@ -122,20 +119,19 @@ jobs:
       - name: Build Windows release
         run: flutter build windows --release
 
-      - name: Zip Windows build
+      - name: Compress Windows build
         run: Compress-Archive -Path build/windows/runner/Release -DestinationPath windows_app.zip
 
-      - name: Upload Windows build to S3
-        uses: aws-actions/s3-sync@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          args: --acl private --follow-symlinks
-        env:
-          AWS_S3_BUCKET: ${{ env.S3_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ env.AWS_REGION }}
-          SOURCE_DIR: .
-          DEST_DIR: windows/
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload Windows build to S3
+        run: aws s3 cp windows_app.zip s3://${{ env.S3_BUCKET }}/windows/windows_app.zip --acl private
+
 
   # macOS Desktop Build
   build-macos:
@@ -158,14 +154,12 @@ jobs:
       - name: Zip macOS build
         run: zip -r macos_app.zip build/macos/Build/Products/Release/
 
-      - name: Upload macOS build to S3
-        uses: aws-actions/s3-sync@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          args: --acl private --follow-symlinks
-        env:
-          AWS_S3_BUCKET: ${{ env.S3_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ env.AWS_REGION }}
-          SOURCE_DIR: .
-          DEST_DIR: macos/
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload macOS build to S3
+        run: aws s3 cp macos_app.zip s3://${{ env.S3_BUCKET }}/macos/macos_app.zip --acl private
