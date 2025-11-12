@@ -148,9 +148,8 @@ jobs:
       - name: Upload Windows build to S3
         run: aws s3 cp windows_app_${{ env.VERSION }}.zip s3://${{ env.S3_BUCKET }}/windows/${{ env.VERSION }}/windows_app.zip --acl private
 
-
-  # macOS Desktop Build
-  build-macos:
+  # iOS Simulator Build (No Signing Required)
+  build-ios:
     runs-on: macos-latest
     steps:
       - name: Checkout code
@@ -166,11 +165,11 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      - name: Build macOS release
-        run: flutter build macos --release
+      - name: Build iOS for simulator (No signing)
+        run: flutter build ios --simulator --release
 
-      - name: Zip macOS build
-        run: zip -r macos_app_${{ env.VERSION }}.zip build/macos/Build/Products/Release/
+      - name: Zip iOS simulator build
+        run: zip -r ios_simulator_app_${{ env.VERSION }}.zip build/ios/iphonesimulator/
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -179,8 +178,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Upload macOS build to S3
-        run: aws s3 cp macos_app_${{ env.VERSION }}.zip s3://${{ env.S3_BUCKET }}/macos/${{ env.VERSION }}/macos_app.zip --acl private
+      - name: Upload iOS simulator build to S3
+        run: aws s3 cp ios_simulator_app_${{ env.VERSION }}.zip s3://${{ env.S3_BUCKET }}/ios/${{ env.VERSION }}/ios_simulator_app.zip --acl private
+
+      - name: Generate Pre-signed URL
+        run: |
+          URL=$(aws s3 presign s3://${{ env.S3_BUCKET }}/ios/${{ env.VERSION }}/ios_simulator_app.zip --expires-in 86400)
+          echo "iOS Simulator Build Download link (valid 24h): $URL"
+
 
 
   # iOS Build (IPA)
