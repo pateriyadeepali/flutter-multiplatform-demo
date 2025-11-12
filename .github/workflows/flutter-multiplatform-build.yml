@@ -83,7 +83,7 @@ jobs:
         run: aws s3 cp build/app/outputs/flutter-apk/app-release.apk s3://${{ env.S3_BUCKET }}/android/${{ env.VERSION }}/app-release.apk --acl private
 
 
-  # Web Build 
+  # Web Build
   build-web:
     runs-on: ubuntu-latest
     steps:
@@ -115,7 +115,7 @@ jobs:
           aws s3 sync build/web s3://${{ env.S3_BUCKET }}/web/${{ env.VERSION }}/ --delete
 
 
-  # Windows Desktop Build 
+  # Windows Desktop Build
   build-windows:
     runs-on: windows-latest
     steps:
@@ -181,3 +181,78 @@ jobs:
 
       - name: Upload macOS build to S3
         run: aws s3 cp macos_app_${{ env.VERSION }}.zip s3://${{ env.S3_BUCKET }}/macos/${{ env.VERSION }}/macos_app.zip --acl private
+
+
+  # iOS Build (IPA)
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          architecture: x64
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Build iOS IPA (Release)
+        run: flutter build ipa --release
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload iOS IPA to S3
+        run: aws s3 cp build/ios/ipa/Runner.ipa s3://${{ env.S3_BUCKET }}/ios/${{ env.VERSION }}/Runner.ipa --acl private
+
+      - name: Generate Pre-signed URL
+        run: |
+          URL=$(aws s3 presign s3://${{ env.S3_BUCKET }}/ios/${{ env.VERSION }}/Runner.ipa --expires-in 86400)
+          echo "iOS IPA Download link (valid 24h): $URL"
+
+
+  # Linux Embedded Build (Local Embedder)
+  build-linux-embedded:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          architecture: x64
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Build Flutter bundle for embedded mode
+        run: flutter build bundle
+
+      - name: Compress Flutter assets
+        run: zip -r flutter_linux_bundle_${{ env.VERSION }}.zip build/flutter_assets/
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload Linux embedded bundle to S3
+        run: aws s3 cp flutter_linux_bundle_${{ env.VERSION }}.zip s3://${{ env.S3_BUCKET }}/linux-embedded/${{ env.VERSION }}/flutter_linux_bundle.zip --acl private
+
+      - name: Generate Pre-signed URL
+        run: |
+          URL=$(aws s3 presign s3://${{ env.S3_BUCKET }}/linux-embedded/${{ env.VERSION }}/flutter_linux_bundle.zip --expires-in 86400)
+          echo "Linux Embedded Bundle Download link (valid 24h): $URL"
