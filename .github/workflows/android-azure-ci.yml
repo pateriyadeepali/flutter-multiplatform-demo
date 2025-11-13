@@ -1,0 +1,71 @@
+name: Android Build & Upload to Azure Blob
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: "3.35.6"
+  STORAGE_ACCOUNT: epsazureblob
+  CONTAINER: github-artifacts-container
+  DIRECTORY: demo-flutter-app-dir
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+
+      - name: Install Flutter Dependencies
+        run: flutter pub get
+
+      - name: Build Android APK (Release)
+        run: flutter build apk --release
+
+      - name: Generate Version & Timestamp
+        id: meta
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+          NEW_NAME="demo-app-${VERSION}-${TIMESTAMP}.apk"
+          mv build/app/outputs/flutter-apk/app-release.apk "$NEW_NAME"
+          echo "APK_NAME=$NEW_NAME" >> $GITHUB_ENV
+
+      - name: Upload APK to Azure Blob Storage
+        run: |
+          curl -X PUT \
+            -T "${{ env.APK_NAME }}" \
+            -H "x-ms-blob-type: BlockBlob" \
+            "https://${{ env.STORAGE_ACCOUNT }}.blob.core.windows.net/${{ env.CONTAINER }}/${{ env.DIRECTORY }}/${{ env.APK_NAME }}?${{ secrets.AZURE_UPLOAD_SAS_TOKEN }}"
+
+      - name: Email Notification (On Success)
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_APP_PASSWORD }}
+          from: ${{ secrets.EMAIL_USERNAME }}
+          to: ${{ secrets.EMAIL_TO }}
+          subject: "New Android APK Build Generated"
+          body: |
+            A new Android build is available.
+
+            File Name:
+            ${{ env.APK_NAME }}
+
+            Base Download URL:
+            https://${{ env.STORAGE_ACCOUNT }}.blob.core.windows.net/${{ env.CONTAINER }}/${{ env.DIRECTORY }}/${{ env.APK_NAME }}?<ADD_SAS_TOKEN_HERE>
+
+            Add your own SAS token to download the file.
