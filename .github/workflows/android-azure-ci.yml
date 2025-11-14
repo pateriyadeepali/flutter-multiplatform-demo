@@ -1,4 +1,4 @@
-name: Android Build & Upload to Azure Blob
+name: Android Build & Upload to Azure
 
 on:
   push:
@@ -6,95 +6,89 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  STORAGE_ACCOUNT: epsazureblob
-  CONTAINER_NAME: github-artifacts-container
-  DIRECTORY: demo-flutter-app-dir
-  FLUTTER_VERSION: '3.35.6'
-
 jobs:
   build-android:
     runs-on: ubuntu-latest
 
     steps:
-        # Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
-        # Dynamic version extract from pubspec.yaml
-      - name: Extract version
-        id: version
-        run: |
-          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
-          echo "VERSION_NUMBER=$VERSION" >> $GITHUB_ENV
-          echo "App Version: $VERSION"
-
-        # Setup Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: '3.35.6'
           channel: stable
           architecture: x64
 
-        # Install dependencies
       - name: Install Flutter dependencies
         run: flutter pub get
 
-        # Build APK
-      - name: Build Android release APK
+      - name: Read app version
+        id: version
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | awk '{print $2}')
+          echo "APP_VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build APK
         run: flutter build apk --release
 
-        # Rename APK with version + timestamp
-      - name: Rename APK
+      - name: Prepare file name
+        id: prepare
         run: |
-          TS=$(date +'%Y%m%d_%H%M%S')
-          NEW_NAME="demo-app-${{ env.VERSION_NUMBER }}-${TS}.apk"
-          mv build/app/outputs/flutter-apk/app-release.apk $NEW_NAME
-          echo "APK_NAME=$NEW_NAME" >> $GITHUB_ENV
+          TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
+          APK_NAME="demo-app-${{ steps.version.outputs.APP_VERSION }}-${TIMESTAMP}.apk"
+          DOWNLOAD_URL="https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/$APK_NAME?${{ secrets.AZURE_SAS_TOKEN_READONLY }}"
+          echo "APK_NAME=$APK_NAME" >> $GITHUB_OUTPUT
+          echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_OUTPUT
 
-        # Upload to Azure Blob Storage
       - name: Upload APK to Azure Blob
         run: |
           curl -X PUT \
-            -T "${{ env.APK_NAME }}" \
-            "https://${{ env.STORAGE_ACCOUNT }}.blob.core.windows.net/${{ env.CONTAINER_NAME }}/${{ env.DIRECTORY }}/${{ env.APK_NAME }}${{ secrets.AZURE_SAS_TOKEN }}"
+            "https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/${{ steps.prepare.outputs.APK_NAME }}?${{ secrets.AZURE_UPLOAD_SAS_TOKEN }}" \
+            -H "x-ms-blob-type: BlockBlob" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            --data-binary "@build/app/outputs/flutter-apk/app-release.apk" \
+            --fail-with-body
 
-        # Send Email Notification
       - name: Send Email Notification
+        if: success()
         run: |
           python3 - << 'EOF'
-          import smtplib
-          from email.mime.text import MIMEText
+import smtplib
+from email.mime.text import MIMEText
 
-          sender = "${{ secrets.SMTP_USERNAME }}"
-          recipients = "${{ secrets.RECIPIENT_EMAILS }}".split(",")
+sender = "${{ secrets.EMAIL_USERNAME }}"
+password = "${{ secrets.EMAIL_APP_PASSWORD }}"
+receivers = [
+    "${{ secrets.RECIPIENT_EMAIL_1 }}",
+    "${{ secrets.RECIPIENT_EMAIL_2 }}"
+]
 
-          apk_url = f"https://${{ env.STORAGE_ACCOUNT }}.blob.core.windows.net/${{ env.CONTAINER_NAME }}/${{ env.DIRECTORY }}/${{ env.APK_NAME }}${{ secrets.AZURE_SAS_TOKEN }}"
+subject = "New APK Uploaded - Version ${{ steps.version.outputs.APP_VERSION }}"
+body = f"""
+Hello,
 
-          body = f"""
-          Hello Team,
+A new APK has been uploaded.
 
-          A new Android APK build is ready.
+Version: ${{ steps.version.outputs.APP_VERSION }}
+File: ${{ steps.prepare.outputs.APK_NAME }}
 
-          Version: {{"${{ env.VERSION_NUMBER }}"}}  
-          File Name: {{"${{ env.APK_NAME }}"}}  
+Download:
+${{ steps.prepare.outputs.DOWNLOAD_URL }}
 
-          Download Link (with SAS token):
-          {apk_url}
+Regards,
+CI/CD Pipeline
+"""
 
-          Regards,
-          CI/CD Automation
-          """
+msg = MIMEText(body)
+msg["Subject"] = subject
+msg["From"] = sender
+msg["To"] = ", ".join(receivers)
 
-          msg = MIMEText(body)
-          msg["Subject"] = f"New APK Build Uploaded — Version ${{ env.VERSION_NUMBER }}"
-          msg["From"] = sender
-          msg["To"] = ", ".join(recipients)
-
-          with smtplib.SMTP("${{ secrets.SMTP_SERVER }}", int("${{ secrets.SMTP_PORT }}")) as server:
-              server.starttls()
-              server.login(sender, "${{ secrets.SMTP_PASSWORD }}")
-              server.sendmail(sender, recipients, msg.as_string())
-          EOF
-
+server = smtplib.SMTP("${{ secrets.SMTP_SERVER }}", int("${{ secrets.SMTP_PORT }}"))
+server.starttls()
+server.login(sender, password)
+server.sendmail(sender, receivers, msg.as_string())
+server.quit()
+EOF
