@@ -24,28 +24,29 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      - name: Read app version
+      - name: Read App Version
         id: version
         run: |
           VERSION=$(grep 'version:' pubspec.yaml | awk '{print $2}')
           echo "APP_VERSION=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Build APK
+      - name: Build APK (Release)
         run: flutter build apk --release
 
-      - name: Prepare file name
-        id: prepare
+      - name: Prepare APK Name + Download URL
+        id: prep
         run: |
           TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
           APK_NAME="demo-app-${{ steps.version.outputs.APP_VERSION }}-${TIMESTAMP}.apk"
-          DOWNLOAD_URL="https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/${APK_NAME}?${{ secrets.AZURE_SAS_TOKEN_READONLY }}"
           echo "APK_NAME=$APK_NAME" >> $GITHUB_OUTPUT
-          echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_OUTPUT
+          
+          DOWNLOAD="https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/$APK_NAME?${{ secrets.AZURE_SAS_TOKEN_READONLY }}"
+          echo "DOWNLOAD_URL=$DOWNLOAD" >> $GITHUB_OUTPUT
 
       - name: Upload APK to Azure Blob
         run: |
           curl -X PUT \
-            "https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/${{ steps.prepare.outputs.APK_NAME }}?${{ secrets.AZURE_UPLOAD_SAS_TOKEN }}" \
+            "https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/${{ steps.prep.outputs.APK_NAME }}?${{ secrets.AZURE_UPLOAD_SAS_TOKEN }}" \
             -H "x-ms-blob-type: BlockBlob" \
             -H "Content-Type: application/vnd.android.package-archive" \
             --data-binary "@build/app/outputs/flutter-apk/app-release.apk" \
@@ -54,37 +55,37 @@ jobs:
       - name: Send Email Notification
         if: success()
         run: |
-          python3 - << 'EOF'
+          python3 << 'EOF'
 import smtplib
 from email.mime.text import MIMEText
 
 sender = "${{ secrets.EMAIL_USERNAME }}"
 password = "${{ secrets.EMAIL_APP_PASSWORD }}"
+
 receivers = [
     "${{ secrets.RECIPIENT_EMAIL_1 }}",
     "${{ secrets.RECIPIENT_EMAIL_2 }}"
 ]
 
 subject = "New APK Uploaded - Version ${{ steps.version.outputs.APP_VERSION }}"
-body = f"""
-Hello,
 
-A new APK has been uploaded.
+body = f"""
+New Android APK has been uploaded.
 
 Version: ${{ steps.version.outputs.APP_VERSION }}
-File: ${{ steps.prepare.outputs.APK_NAME }}
+APK Name: ${{ steps.prep.outputs.APK_NAME }}
 
-Download:
-${{ steps.prepare.outputs.DOWNLOAD_URL }}
+Download (Read-Only Token Included):
+${{ steps.prep.outputs.DOWNLOAD_URL }}
 
 Regards,
 CI/CD Pipeline
 """
 
 msg = MIMEText(body)
-msg["Subject"] = subject
 msg["From"] = sender
 msg["To"] = ", ".join(receivers)
+msg["Subject"] = subject
 
 server = smtplib.SMTP("${{ secrets.SMTP_SERVER }}", int("${{ secrets.SMTP_PORT }}"))
 server.starttls()
