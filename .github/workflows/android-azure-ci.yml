@@ -1,23 +1,63 @@
-name: Android Build & Upload to Azure
+name: Android Multi-Env Build & Upload to Azure
 
 on:
   push:
     branches:
+      - dev
+      - qa
+      - uat
       - main
   workflow_dispatch:
 
-jobs:
-  build-android:
-    runs-on: ubuntu-latest
+env:
+  FLUTTER_VERSION: '3.35.6'
+  # APK filename pattern will be created in the workflow
 
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Detect environment (from branch)
+        id: detect
+        run: |
+          BRANCH="${GITHUB_REF##*/}"
+          if [[ "$BRANCH" == "dev" ]]; then
+            echo "ENV=dev" >> $GITHUB_OUTPUT
+            echo "DEST_DIR=dev" >> $GITHUB_OUTPUT
+          elif [[ "$BRANCH" == "qa" ]]; then
+            echo "ENV=qa" >> $GITHUB_OUTPUT
+            echo "DEST_DIR=qa" >> $GITHUB_OUTPUT
+          elif [[ "$BRANCH" == "uat" ]]; then
+            echo "ENV=uat" >> $GITHUB_OUTPUT
+            echo "DEST_DIR=uat" >> $GITHUB_OUTPUT
+          else
+            echo "ENV=prod" >> $GITHUB_OUTPUT
+            echo "DEST_DIR=prod" >> $GITHUB_OUTPUT
+          fi
+          echo "BRANCH=$BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Select environment config (copy config -> app_config)
+        run: |
+          # repo has lib/config/{dev,qa,uat,prod}_config.dart
+          ENV="${{ steps.detect.outputs.ENV }}"
+          if [[ "$ENV" == "dev" ]]; then
+            cp lib/config/dev_config.dart lib/config/app_config.dart
+          elif [[ "$ENV" == "qa" ]]; then
+            cp lib/config/qa_config.dart lib/config/app_config.dart
+          elif [[ "$ENV" == "uat" ]]; then
+            cp lib/config/uat_config.dart lib/config/app_config.dart
+          else
+            cp lib/config/prod_config.dart lib/config/app_config.dart
+          fi
+          echo "Selected config for $ENV"
+      
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.6'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           architecture: x64
 
@@ -27,55 +67,92 @@ jobs:
       - name: Read App Version
         id: version
         run: |
-          VERSION=$(grep 'version:' pubspec.yaml | awk '{print $2}')
-          echo "APP_VERSION=$VERSION" >> $GITHUB_OUTPUT
+          # extract version from pubspec.yaml (example: version: 1.0.0+1)
+          VERSION_LINE=$(grep '^version:' pubspec.yaml || true)
+          if [[ -z "$VERSION_LINE" ]]; then
+            APP_VERSION="0.0.0"
+          else
+            APP_VERSION=$(echo "$VERSION_LINE" | awk '{print $2}')
+          fi
+          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Build APK (Release)
+      - name: Build Android APK (release) for env
         run: flutter build apk --release
 
-      - name: Prepare APK Name + Download URL
+      - name: Prepare APK name + download URL
         id: prep
         run: |
           TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
-          APK_NAME="demo-app-${{ steps.version.outputs.APP_VERSION }}-${TIMESTAMP}.apk"
+          ENV="${{ steps.detect.outputs.ENV }}"
+          APP_VERSION="${{ steps.version.outputs.APP_VERSION }}"
+          APK_NAME="demo-app-${ENV}-${APP_VERSION}-${TIMESTAMP}.apk"
+          # Build destination directory on Azure (subfolder per env)
+          DEST_DIR="${{ steps.detect.outputs.DEST_DIR }}"
           echo "APK_NAME=$APK_NAME" >> $GITHUB_OUTPUT
+          echo "DEST_DIR=$DEST_DIR" >> $GITHUB_OUTPUT
+          # read-only URL (will include readonly token)
+          DOWNLOAD_URL="https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/${DEST_DIR}/${APK_NAME}?${{ secrets.AZURE_SAS_TOKEN_READONLY }}"
+          echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_OUTPUT
 
-          DOWNLOAD="https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/$APK_NAME?${{ secrets.AZURE_SAS_TOKEN_READONLY }}"
-          echo "DOWNLOAD_URL=$DOWNLOAD" >> $GITHUB_OUTPUT
-
-      - name: Upload APK to Azure Blob
+      - name: Upload APK to Azure Blob (using upload SAS token)
         run: |
-          curl -X PUT \
-            "https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/${{ steps.prep.outputs.APK_NAME }}?${{ secrets.AZURE_UPLOAD_SAS_TOKEN }}" \
+          DEST_DIR="${{ steps.prep.outputs.DEST_DIR }}"
+          APK_NAME="${{ steps.prep.outputs.APK_NAME }}"
+          STORAGE_ACCOUNT="${{ secrets.AZURE_STORAGE_ACCOUNT }}"
+          CONTAINER="${{ secrets.AZURE_CONTAINER }}"
+          UPLOAD_SAS="${{ secrets.AZURE_UPLOAD_SAS_TOKEN }}"
+          BLOB_URL="https://${STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER}/${{ secrets.AZURE_DIRECTORY }}/${DEST_DIR}/${APK_NAME}?${UPLOAD_SAS}"
+
+          echo "Uploading to: $BLOB_URL"
+          curl -sS -X PUT "$BLOB_URL" \
             -H "x-ms-blob-type: BlockBlob" \
             -H "Content-Type: application/vnd.android.package-archive" \
             --data-binary "@build/app/outputs/flutter-apk/app-release.apk" \
             --fail-with-body
 
-      - name: Send Email Notification
+      - name: Generate Read-Only Download Link (for logs)
+        run: |
+          echo "Download link (read-only):"
+          echo "${{ steps.prep.outputs.DOWNLOAD_URL }}"
+
+      - name: Send Email Notification (only on success)
         if: success()
+        env:
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          RECIPIENT_EMAIL_1: ${{ secrets.RECIPIENT_EMAIL_1 }}
+          # RECIPIENT_EMAIL_2 can be added later (manager). Example secret name:
+          # RECIPIENT_EMAIL_2: ${{ secrets.RECIPIENT_EMAIL_2 }}
         run: |
           python3 << 'EOF'
           import smtplib
           from email.mime.text import MIMEText
 
-          sender = "${{ secrets.EMAIL_USERNAME }}"
-          password = "${{ secrets.EMAIL_APP_PASSWORD }}"
+          sender = "${{ env.EMAIL_USERNAME }}"
+          password = "${{ env.EMAIL_APP_PASSWORD }}"
 
+          # recipients - only primary recipient enabled now
           receivers = [
-              "${{ secrets.RECIPIENT_EMAIL_1 }}",
-              "${{ secrets.RECIPIENT_EMAIL_2 }}"
+              "${{ env.RECIPIENT_EMAIL_1 }}"
+              # To add manager or others, add them here or use RECIPIENT_EMAIL_2 secret
+              # "${{ secrets.RECIPIENT_EMAIL_2 }}"
           ]
 
-          subject = "New APK Uploaded - Version ${{ steps.version.outputs.APP_VERSION }}"
+          subject = f"APK uploaded - { '${{ steps.detect.outputs.ENV }}'.upper() } - version ${{ steps.version.outputs.APP_VERSION }}"
 
           body = f"""
-          New Android APK has been uploaded.
+          Hello,
 
+          An Android APK build has completed and was uploaded to Azure.
+
+          Environment: ${{ steps.detect.outputs.ENV }}
+          Branch: ${{ steps.detect.outputs.BRANCH }}
           Version: ${{ steps.version.outputs.APP_VERSION }}
-          APK Name: ${{ steps.prep.outputs.APK_NAME }}
+          APK file: ${{ steps.prep.outputs.APK_NAME }}
 
-          Download (Read-Only Token Included):
+          Download (read-only link):
           ${{ steps.prep.outputs.DOWNLOAD_URL }}
 
           Regards,
@@ -87,7 +164,7 @@ jobs:
           msg["To"] = ", ".join(receivers)
           msg["Subject"] = subject
 
-          server = smtplib.SMTP("${{ secrets.SMTP_SERVER }}", int("${{ secrets.SMTP_PORT }}"))
+          server = smtplib.SMTP("${{ env.SMTP_SERVER }}", int("${{ env.SMTP_PORT }}"))
           server.starttls()
           server.login(sender, password)
           server.sendmail(sender, receivers, msg.as_string())

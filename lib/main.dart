@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'config/app_config.dart';   // Load environment config
+import 'config/app_config.dart';
 
 void main() {
   runApp(const MyApp());
@@ -11,35 +11,32 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: environmentConfig["title"],
+      title: environmentConfig["title"] as String? ?? "Flutter Demo",
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: environmentConfig["primaryColor"],
+          seedColor: environmentConfig["primaryColor"] as Color? ?? Colors.blue,
         ),
-        scaffoldBackgroundColor: environmentConfig["bgColor"],
-        appBarTheme: AppBarTheme(
-          backgroundColor: environmentConfig["primaryColor"],
-        ),
+        scaffoldBackgroundColor:
+            environmentConfig["bgColor"] as Color? ?? Colors.white,
       ),
-      home: MyHomePage(title: environmentConfig["title"]),
+      home: const MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-  final String title;
+  const MyHomePage({super.key});
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  int counter = 0;
 
-  void _incrementCounter() {
+  void _increment() {
     setState(() {
-      _counter++;
+      counter++;
     });
   }
 
@@ -47,30 +44,26 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Text(environmentConfig["title"] as String),
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'Environment: ${environmentConfig["title"]}',
-              style: const TextStyle(fontSize: 18),
-            ),
-            const SizedBox(height: 10),
-            const Text('Tap the button and see the counts!'),
+          children: [
+            const Text("This is environment-based build"),
             const SizedBox(height: 10),
             Text(
-              '$_counter',
+              "$counter",
               style: Theme.of(context).textTheme.headlineMedium,
             ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        backgroundColor: environmentConfig["fabColor"],
-        tooltip: 'Increment',
+        onPressed: _increment,
+        backgroundColor:
+            environmentConfig["fabColor"] as Color? ?? Colors.teal,
         child: const Icon(Icons.add),
       ),
     );
