@@ -123,8 +123,7 @@ jobs:
           EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
           EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
           RECIPIENT_EMAIL_1: ${{ secrets.RECIPIENT_EMAIL_1 }}
-          # RECIPIENT_EMAIL_2 can be added later (manager). Example secret name:
-          # RECIPIENT_EMAIL_2: ${{ secrets.RECIPIENT_EMAIL_2 }}
+          RECIPIENT_EMAIL_2: ${{ secrets.RECIPIENT_EMAIL_2 }}
         run: |
           python3 << 'EOF'
           import smtplib
