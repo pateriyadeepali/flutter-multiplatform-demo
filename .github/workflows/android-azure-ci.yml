@@ -38,7 +38,7 @@ jobs:
         run: |
           TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
           APK_NAME="demo-app-${{ steps.version.outputs.APP_VERSION }}-${TIMESTAMP}.apk"
-          DOWNLOAD_URL="https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/$APK_NAME?${{ secrets.AZURE_SAS_TOKEN_READONLY }}"
+          DOWNLOAD_URL="https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/${APK_NAME}?${{ secrets.AZURE_SAS_TOKEN_READONLY }}"
           echo "APK_NAME=$APK_NAME" >> $GITHUB_OUTPUT
           echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_OUTPUT
 
