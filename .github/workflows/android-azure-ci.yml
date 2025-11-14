@@ -134,9 +134,8 @@ jobs:
 
           # recipients - only primary recipient enabled now
           receivers = [
-              "${{ env.RECIPIENT_EMAIL_1 }}"
-              # To add manager or others, add them here or use RECIPIENT_EMAIL_2 secret
-              # "${{ secrets.RECIPIENT_EMAIL_2 }}"
+              "${{ env.RECIPIENT_EMAIL_1 }}",
+              "${{ env.RECIPIENT_EMAIL_2 }}"
           ]
 
           subject = f"APK uploaded - { '${{ steps.detect.outputs.ENV }}'.upper() } - version ${{ steps.version.outputs.APP_VERSION }}"
