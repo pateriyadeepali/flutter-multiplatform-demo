@@ -28,9 +28,9 @@ class MyApp extends StatelessWidget {
         //
         // This works for code too, not just values: Most code changes can be
         // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.tealAccent),
       ),
-      home: const MyHomePage(title: 'Flutter Demo version 2'),
+      home: const MyHomePage(title: 'Flutter Demo version 3'),
     );
   }
 }
@@ -114,7 +114,7 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _incrementCounter,
-        backgroundColor: Colors.purple,
+        backgroundColor: Colors.tealAccent,
         tooltip: 'Increment',
         child: const Icon(Icons.add),
       ), // This trailing comma makes auto-formatting nicer for build methods.
