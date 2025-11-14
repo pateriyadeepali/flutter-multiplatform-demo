@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
-import 'config/app_config.dart';   // Load environment config
+import 'config/app_config.dart';
+
+// helper to convert config values to Color
+Color toColor(dynamic value) {
+  if (value is int) return Color(value);
+  if (value is Color) return value;
+  return Colors.blue; // fallback
+}
 
 void main() {
   runApp(const MyApp());
@@ -11,24 +18,23 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: environmentConfig["title"],
+      title: environmentConfig["title"] ?? "Flutter Demo",
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: environmentConfig["primaryColor"],
+          seedColor: toColor(environmentConfig["primaryColor"]),
         ),
-        scaffoldBackgroundColor: environmentConfig["bgColor"],
-        appBarTheme: AppBarTheme(
-          backgroundColor: environmentConfig["primaryColor"],
-        ),
+        scaffoldBackgroundColor: toColor(environmentConfig["bgColor"]),
+        useMaterial3: true,
       ),
-      home: MyHomePage(title: environmentConfig["title"]),
+      home: MyHomePage(title: environmentConfig["title"] as String),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
   final String title;
+
+  const MyHomePage({super.key, required this.title});
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -47,6 +53,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: toColor(environmentConfig["primaryColor"]),
         title: Text(widget.title),
       ),
       body: Center(
@@ -57,9 +64,7 @@ class _MyHomePageState extends State<MyHomePage> {
               'Environment: ${environmentConfig["title"]}',
               style: const TextStyle(fontSize: 18),
             ),
-            const SizedBox(height: 10),
-            const Text('This is the updated version of the app!'),
-            const SizedBox(height: 10),
+            const SizedBox(height: 20),
             Text(
               '$_counter',
               style: Theme.of(context).textTheme.headlineMedium,
@@ -68,9 +73,8 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        backgroundColor: toColor(environmentConfig["fabColor"]),
         onPressed: _incrementCounter,
-        backgroundColor: environmentConfig["fabColor"],
-        tooltip: 'Increment',
         child: const Icon(Icons.add),
       ),
     );
