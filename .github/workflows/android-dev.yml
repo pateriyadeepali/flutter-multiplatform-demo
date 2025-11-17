@@ -1,0 +1,114 @@
+name: Android Dev Build & Upload to Azure
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.35.6'
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set ENV for Dev
+        id: detect
+        run: |
+          echo "ENV=dev" >> $GITHUB_OUTPUT
+          echo "DEST_DIR=dev" >> $GITHUB_OUTPUT
+          echo "BRANCH=dev" >> $GITHUB_OUTPUT
+
+      - name: Select Dev config
+        run: |
+          cp lib/config/dev_config.dart lib/config/app_config.dart
+          echo "Using DEV config"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          architecture: x64
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Read App Version
+        id: version
+        run: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml || true)
+          if [[ -z "$VERSION_LINE" ]]; then APP_VERSION="0.0.0"; else APP_VERSION=$(echo "$VERSION_LINE" | awk '{print $2}'); fi
+          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Prepare APK name & URL
+        id: prep
+        run: |
+          TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
+          APP_VERSION="${{ steps.version.outputs.APP_VERSION }}"
+          APK_NAME="demo-app-dev-${APP_VERSION}-${TIMESTAMP}.apk"
+          echo "APK_NAME=$APK_NAME" >> $GITHUB_OUTPUT
+          DOWNLOAD_URL="https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/dev/${APK_NAME}?${{ secrets.AZURE_SAS_TOKEN_READONLY }}"
+          echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_OUTPUT
+
+      - name: Upload APK to Azure
+        run: |
+          BLOB_URL="https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/dev/${{ steps.prep.outputs.APK_NAME }}?${{ secrets.AZURE_UPLOAD_SAS_TOKEN }}"
+          curl -sS -X PUT "$BLOB_URL" \
+            -H "x-ms-blob-type: BlockBlob" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            --data-binary "@build/app/outputs/flutter-apk/app-release.apk" \
+            --fail-with-body
+
+      - name: Send Email (DEV recipients)
+        if: success()
+        env:
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          DEV_EMAIL_LIST: ${{ secrets.DEV_EMAIL_LIST }}
+        run: |
+          python3 << 'EOF'
+          import smtplib
+          from email.mime.text import MIMEText
+
+          sender = "${{ env.EMAIL_USERNAME }}"
+          password = "${{ env.EMAIL_APP_PASSWORD }}"
+          receivers = [e.strip() for e in "${{ env.DEV_EMAIL_LIST }}".split(",")]
+
+          subject = f"DEV APK Uploaded - Version ${{ steps.version.outputs.APP_VERSION }}"
+          body = f"""
+          Hello Team,
+
+          DEV APK build is done.
+
+          Version: ${{ steps.version.outputs.APP_VERSION }}
+          File: ${{ steps.prep.outputs.APK_NAME }}
+
+          Download Link:
+          ${{ steps.prep.outputs.DOWNLOAD_URL }}
+
+          Regards,
+          CI/CD Pipeline
+          """
+
+          msg = MIMEText(body)
+          msg["From"] = sender
+          msg["To"] = ", ".join(receivers)
+          msg["Subject"] = subject
+
+          server = smtplib.SMTP("${{ env.SMTP_SERVER }}", int("${{ env.SMTP_PORT }}"))
+          server.starttls()
+          server.login(sender, password)
+          server.sendmail(sender, receivers, msg.as_string())
+          server.quit()
+          EOF
