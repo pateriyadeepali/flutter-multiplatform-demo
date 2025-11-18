@@ -1,0 +1,15 @@
+name: UAT Manual Test
+
+on:
+  workflow_dispatch:  
+
+jobs:
+  test-uat:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test Step
+        run: echo "UAT manual workflow is running successfully!"
