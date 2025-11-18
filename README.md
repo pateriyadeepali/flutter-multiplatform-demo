@@ -1,16 +1,43 @@
-# demo_android_app
+# Flutter Multi-Platform App with Azure CI/CD
 
-A new Flutter project.
+## Overview
+This project is a demo **Flutter application** created to explore:
 
-## Getting Started
+- Multi-platform Flutter development  
+- Multi-environment builds (DEV / QA / UAT / PROD)  
+- CI/CD automation using **GitHub Actions**  
+- Uploading Android APKs to **Azure Blob Storage**  
+- Email notifications using **SMTP**  
+- Environment-based UI changes  
+- Secure storage of secrets in GitHub  
 
-This project is a starting point for a Flutter application.
+The same Flutter codebase builds different environment apps with different colors, titles, and configurations.
 
-A few resources to get you started if this is your first Flutter project:
+---
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+```mermaid
+flowchart TD
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+    Developer["Developer Pushes Code\n(dev / qa / uat / main)"]
+        -->|Git Push| GitHub[GitHub Repository]
+
+    subgraph CICD["GitHub Actions CI/CD Pipeline"]
+        GitHub --> WF["Detect Branch\nSelect Environment Config"]
+        WF --> Build["Flutter Build APK\n(Android Release)"]
+        Build --> Upload["Upload APK to Azure Blob Storage\n(Using SAS Token)"]
+        Upload --> Notify["Send Automatic Email Notification\n(SMTP + App Password)"]
+    end
+
+    subgraph Azure["Azure Blob Storage"]
+        Upload --> Container["github-artifacts-container"]
+        Container --> DevDir["dev/ APK Files"]
+        Container --> QADir["qa/ APK Files"]
+        Container --> UATDir["uat/ APK Files"]
+        Container --> ProdDir["prod/ APK Files"]
+    end
+
+    Notify --> Testers["Testers Download APK\n(Read-only SAS Token)"]
+```
+
+
+
