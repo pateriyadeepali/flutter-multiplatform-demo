@@ -18,6 +18,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Apply UAT Config
+        run: cp lib/config/uat_config.dart lib/config/app_config.dart
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -126,7 +129,7 @@ jobs:
           msg["To"] = ", ".join(receivers)
           msg["Subject"] = subject
 
-          server = smtplib.SMTP("${{ env.UAT_SMTP_SERVER }}", int("${{ env.UAT_SMTP_PORT }}"))
+          server = smtplib.SMTP("${{ env.SMTP_SERVER }}", int("${{ env.SMTP_PORT }}"))
           server.starttls()
           server.login(sender, password)
           server.sendmail(sender, receivers, msg.as_string())
