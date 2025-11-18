@@ -57,9 +57,8 @@ jobs:
 
       - name: Upload APK to Azure
         run: |
-            BLOB_URL="${{ steps.prep.outputs.DOWNLOAD_URL_APK }}"
-            echo "Uploading to: $BLOB_URL"
-            curl -sS -X PUT "$BLOB_URL" \
+          BLOB_URL="https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/${{ env.pipeline-env }}/${{ steps.prep.outputs.APK_NAME }}?${{ secrets.AZURE_UPLOAD_SAS_TOKEN }}"
+          curl -sS -X PUT "$BLOB_URL" \
             --data-binary "@build/app/outputs/flutter-apk/app-release.apk" \
             -H "x-ms-blob-type: BlockBlob" \
             -H "Content-Type: application/vnd.android.package-archive" \
