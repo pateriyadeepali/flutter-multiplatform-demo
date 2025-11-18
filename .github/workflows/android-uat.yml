@@ -1,0 +1,139 @@
+name: Tandem-UI UAT Pipeline
+
+on:
+  push:
+    branches:
+      - uat
+  workflow_dispatch:
+
+env:
+  pipeline-env: uat
+  email-env: UAT
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ secrets.FLUTTER_VERSION }}
+          channel: ${{ secrets.FLUTTER_CHANNEL }}
+          architecture: ${{ secrets.FLUTTER_ARCHITECTURE }}
+
+      - name: Clean Flutter project
+        run: flutter clean
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Building APK
+        run: flutter build apk --release 
+
+      - name: Building IPA
+        run: flutter build ipa --release --no-codesign
+
+      - name: Read App Version
+        id: version
+        run: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml || true)
+          if [[ -z "$VERSION_LINE" ]]; then APP_VERSION="0.0.0"; else APP_VERSION=$(echo "$VERSION_LINE" | awk '{print $2}'); fi
+          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Prepare APK info
+        id: prep
+        run: |
+          TIMESTAMP=$(date + '${{ secrets.TIMESTAMP_FORMAT }}')
+          APP_VERSION="${{ steps.version.outputs.APP_VERSION }}"
+          APK_NAME="tandem-android-${{ env.pipeline-env }}-${APP_VERSION}-${TIMESTAMP}.apk"
+          echo "APK_NAME=$APK_NAME" >> $GITHUB_OUTPUT
+          IPA_NAME="tandem-ios-${{ env.pipeline-env }}-${APP_VERSION}-${TIMESTAMP}.ipa"
+          echo "IPA_NAME=$IPA_NAME" >> $GITHUB_OUTPUT
+          DOWNLOAD_URL_APK="https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/${{ env.pipeline-env }}/${APK_NAME}?${{ secrets.AZURE_SAS_TOKEN_READONLY }}"
+          DOWNLOAD_URL_IPA="https://${{ secrets.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ secrets.AZURE_CONTAINER }}/${{ secrets.AZURE_DIRECTORY }}/${{ env.pipeline-env }}/${IPA_NAME}?${{ secrets.AZURE_SAS_TOKEN_READONLY }}"
+
+          echo "DOWNLOAD_URL_APK=$DOWNLOAD_URL_APK" >> $GITHUB_OUTPUT
+          echo "DOWNLOAD_URL_IPA=$DOWNLOAD_URL_IPA" >> $GITHUB_OUTPUT
+
+      - name: Upload APK to Azure
+        run: |
+          BLOB_URL=${{ steps.prep.outputs.DOWNLOAD_URL_APK }}
+          curl -sS -X PUT "$BLOB_URL" \
+            --data-binary "@build/app/outputs/flutter-apk/app-release.apk" \
+            -H "x-ms-blob-type: BlockBlob" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            --fail-with-body
+      
+      - name: Upload IPA to Azure
+        run: |
+          BLOB_URL=${{ steps.prep.outputs.DOWNLOAD_URL_IPA }}
+          curl -sS -X PUT "$BLOB_URL" \
+            --data-binary "@build/ios/ipa/Tandem.ipa" \
+            -H "x-ms-blob-type: BlockBlob" \
+            -H "Content-Type: application/octet-stream" \
+            --fail-with-body
+
+      - name: Send Email (QA recipients)
+        if: success()
+        env:
+          SMTP_SERVER: ${{ secrets.UAT_SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.UAT_SMTP_PORT }}
+          EMAIL_USERNAME: ${{ secrets.UAT_EMAIL_USERNAME }}
+          EMAIL_APP_PASSWORD: ${{ secrets.UAT_EMAIL_APP_PASSWORD }}
+          EMAIL_LIST: ${{ secrets.UAT_EMAIL_LIST }}
+        run: |
+          python3 << 'EOF'
+          import smtplib
+          from email.mime.text import MIMEText
+
+          sender = "${{ env.EMAIL_USERNAME }}"
+          password = "${{ env.EMAIL_APP_PASSWORD }}"
+          receivers = [e.strip() for e in "${{ env.EMAIL_LIST }}".split(",")]
+
+          subject = f"Tandem ${{ env.email-env }} IPA/APK Uploaded - Version ${{ steps.version.outputs.APP_VERSION }}"
+          body = f"""
+          Hello Team,
+
+          This is to inform you that the latest ${{ env.email-env }} build has been successfully completed through the CI/CD pipeline.
+          The generated artifacts for both Android and iOS are now ready for review, testing, and validation.
+          
+          Below are the details of the build:
+
+          Build Information:
+
+          - Version: ${{ steps.version.outputs.APP_VERSION }}
+          - APK File: ${{ steps.prep.outputs.APK_NAME }}
+          - IPA File: ${{ steps.prep.outputs.IPA_NAME }}
+
+          Download Links:
+          - Android (APK): ${{ steps.prep.outputs.DOWNLOAD_URL_APK }}
+          - iOS (IPA): ${{ steps.prep.outputs.DOWNLOAD_URL_IPA }}
+
+          Please use the above links to download and test the respective builds. If you encounter any issues during installation, loading, or testing, kindly report them so the team can address them promptly.
+
+          Thank you for your continuous support and collaboration.
+
+          Regards,
+          CI/CD Pipeline
+          """
+
+          msg = MIMEText(body)
+          msg["From"] = sender
+          msg["To"] = ", ".join(receivers)
+          msg["Subject"] = subject
+
+          server = smtplib.SMTP("${{ env.UAT_SMTP_SERVER }}", int("${{ env.UAT_SMTP_PORT }}"))
+          server.starttls()
+          server.login(sender, password)
+          server.sendmail(sender, receivers, msg.as_string())
+          server.quit()
+          EOF
+      
+
+
+
+
