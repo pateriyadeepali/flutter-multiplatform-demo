@@ -57,13 +57,14 @@ jobs:
 
       - name: Upload APK to Azure
         run: |
-          BLOB_URL=${{ steps.prep.outputs.DOWNLOAD_URL_APK }}
-          curl -sS -X PUT "$BLOB_URL" \
+            BLOB_URL="${{ steps.prep.outputs.DOWNLOAD_URL_APK }}"
+            echo "Uploading to: $BLOB_URL"
+            curl -sS -X PUT "$BLOB_URL" \
             --data-binary "@build/app/outputs/flutter-apk/app-release.apk" \
             -H "x-ms-blob-type: BlockBlob" \
             -H "Content-Type: application/vnd.android.package-archive" \
             --fail-with-body
-      
+
       - name: Send Email (QA recipients)
         if: success()
         env:
