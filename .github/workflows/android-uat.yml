@@ -47,7 +47,7 @@ jobs:
       - name: Prepare APK info
         id: prep
         run: |
-          TIMESTAMP=$(date + '${{ secrets.TIMESTAMP_FORMAT }}')
+          TIMESTAMP=$(date + "${{ secrets.TIMESTAMP_FORMAT }}")
           APP_VERSION="${{ steps.version.outputs.APP_VERSION }}"
           APK_NAME="tandem-android-${{ env.pipeline-env }}-${APP_VERSION}-${TIMESTAMP}.apk"
           echo "APK_NAME=$APK_NAME" >> $GITHUB_OUTPUT
