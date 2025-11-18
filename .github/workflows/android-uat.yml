@@ -38,7 +38,8 @@ jobs:
         run: flutter build apk --release 
 
       - name: Building IPA
-        run: flutter build ipa --release --no-codesign
+        run: flutter build ipa --no-codesign
+
 
       - name: Read App Version
         id: version
