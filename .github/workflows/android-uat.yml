@@ -1,4 +1,4 @@
-name: Tandem-UI UAT Pipeline
+name: Tandem-UI UAT Pipelinee
 
 on:
   push:
