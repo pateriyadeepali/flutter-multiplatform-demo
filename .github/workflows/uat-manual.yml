@@ -1,15 +1,17 @@
 name: UAT Manual Test
 
 on:
-  workflow_dispatch:  
+  workflow_dispatch:
 
 jobs:
   test-uat:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout UAT branch
         uses: actions/checkout@v4
+        with:
+          ref: uat   # <-- Checkout UAT branch here (job section)
 
       - name: Test Step
         run: echo "UAT manual workflow is running successfully!"
