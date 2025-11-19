@@ -1,7 +1,12 @@
 name: Dev Manual Test
 
 on:
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'Environment to run on'
+        required: false
+        default: 'dev'
 
 jobs:
   test-dev:
@@ -16,4 +21,6 @@ jobs:
 
       # Step 2: Run test step
       - name: Dev Test Step
-        run: echo "Dev manual workflow is running successfully!"
+        run: |
+          echo "Dev manual workflow is running successfully!"
+          echo "Environment input: ${{ github.event.inputs.env }}"
