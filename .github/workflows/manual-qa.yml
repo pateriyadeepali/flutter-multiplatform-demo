@@ -1,0 +1,17 @@
+name: QA Manual Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-qa:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout QA branch
+        uses: actions/checkout@v4
+        with:
+          ref: qa   # <-- Checkout QA branch here
+
+      - name: Test Step
+        run: echo "QA manual workflow is running successfully!"
