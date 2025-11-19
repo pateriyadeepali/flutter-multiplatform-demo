@@ -1,7 +1,9 @@
 name: QA Manual Test
 
 on:
-  workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"  # every 5 minutes
+  workflow_dispatch:        # also allow manual trigger
 
 jobs:
   test-qa:
@@ -11,7 +13,7 @@ jobs:
       - name: Checkout QA branch
         uses: actions/checkout@v4
         with:
-          ref: qa   # <-- Checkout QA branch here
+          ref: qa
 
-      - name: Test Step
-        run: echo "QA manual workflow is running successfully!"
+      - name: QA Test Step
+        run: echo "QA workflow running successfully!"
