@@ -1,0 +1,19 @@
+name: Dev Manual Test
+
+on:
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  test-dev:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout dev branch
+      - name: Checkout Dev branch
+        uses: actions/checkout@v4
+        with:
+          ref: dev  # Checkout the dev branch
+
+      # Step 2: Run test step
+      - name: Dev Test Step
+        run: echo "Dev manual workflow is running successfully!"
