@@ -21,6 +21,24 @@ jobs:
       - name: Apply UAT Config
         run: cp lib/config/uat_config.dart lib/config/app_config.dart
 
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Cache Flutter Pub
+        uses: actions/cache@v3
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -81,32 +99,35 @@ jobs:
           receivers = [e.strip() for e in "${{ env.EMAIL_LIST }}".split(",")]
 
           subject = f"Tandem ${{ env.email-env }} APK Uploaded - Version ${{ steps.version.outputs.APP_VERSION }}"
-          body = f"""
-          Hello Team,
 
-          This is to inform you that the latest ${{ env.email-env }} build has been successfully completed through the CI/CD pipeline.
-          The generated artifacts for Android are now ready for review, testing, and validation.
+          # original link with SAS token
+          link = "${{ steps.prep.outputs.DOWNLOAD_URL_APK }}?${{ secrets.AZURE_SAS_TOKEN_READONLY }}"
+
+          body = """
+          Hello Team,<br><br>
+
+          This is to inform you that the latest ${{ env.email-env }} build has been successfully completed through the CI/CD pipeline.<br>
+          The generated artifacts for Android are now ready for review, testing, and validation.<br><br>
           
-          Below are the details of the build:
+          Below are the details of the build:<br><br>
 
-          Build Information:
+          Build Information:<br><br>
 
-          - Version: ${{ steps.version.outputs.APP_VERSION }}
-          - APK File: ${{ steps.prep.outputs.APK_NAME }}
+          - Version: ${{ steps.version.outputs.APP_VERSION }}<br>
+          - APK File: ${{ steps.prep.outputs.APK_NAME }}<br><br>
 
-          Download Links:
-            - Android (APK): ${{ steps.prep.outputs.DOWNLOAD_URL_APK }}?${{ secrets.AZURE_SAS_TOKEN_READONLY }}
+          Download Links:<br>
+            - Android (APK): <a href="{}">Click here</a><br><br>
 
+          Please use the above links to download and test the respective builds. If you encounter any issues during installation, loading, or testing, kindly report them so the team can address them promptly.<br><br>
 
-          Please use the above links to download and test the respective builds. If you encounter any issues during installation, loading, or testing, kindly report them so the team can address them promptly.
+          Thank you for your continuous support and collaboration.<br><br>
 
-          Thank you for your continuous support and collaboration.
-
-          Regards,
+          Regards,<br>
           CI/CD Pipeline
-          """
+          """.format(link)
 
-          msg = MIMEText(body)
+          msg = MIMEText(body, "html")
           msg["From"] = sender
           msg["To"] = ", ".join(receivers)
           msg["Subject"] = subject
@@ -117,8 +138,3 @@ jobs:
           server.sendmail(sender, receivers, msg.as_string())
           server.quit()
           EOF
-      
-
-
-
-
