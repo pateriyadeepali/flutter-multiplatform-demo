@@ -29,6 +29,30 @@ jobs:
           cp lib/config/qa_config.dart lib/config/app_config.dart
           echo "Using QA config"
 
+      - name: Cache Flutter packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pubcache-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pubcache-
+
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+   
+      - name: Cache Android SDK
+        uses: actions/cache@v3
+        with:
+          path: /usr/local/lib/android/sdk
+          key: ${{ runner.os }}-androidsdk
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -97,11 +121,26 @@ jobs:
           Download Link:
           ${{ steps.prep.outputs.DOWNLOAD_URL }}
 
-          Regards,
-          CI/CD Pipeline
+          body = f"""
+          <html>
+          <body>
+              <p>Hello Team,<br><br>
+              QA APK build completed.<br><br>
+
+              <b>Version:</b> ${{ steps.version.outputs.APP_VERSION }}<br>
+              <b>File:</b> ${{ steps.prep.outputs.APK_NAME }}<br><br>
+
+              <b>Download APK:</b><br>
+              <a href="{download_url}">Click here to download</a><br><br>
+
+              Regards,<br>
+              CI/CD Pipeline<br>
+              </p>
+          </body>
+          </html>
           """
 
-          msg = MIMEText(body)
+          msg = MIMEText(body, "html")
           msg["From"] = sender
           msg["To"] = ", ".join(receivers)
           msg["Subject"] = subject
