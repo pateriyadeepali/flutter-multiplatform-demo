@@ -109,36 +109,30 @@ jobs:
           password = "${{ env.EMAIL_APP_PASSWORD }}"
           receivers = [e.strip() for e in "${{ env.QA_EMAIL_LIST }}".split(",")]
 
-          subject = f"QA APK Uploaded - Version ${{ steps.version.outputs.APP_VERSION }}"
-          body = f"""
-          Hello Team,
+          app_version = "${{ steps.version.outputs.APP_VERSION }}"
+          apk_name = "${{ steps.prep.outputs.APK_NAME }}"
+          download_url = "${{ steps.prep.outputs.DOWNLOAD_URL }}"
 
-          QA APK build completed.
+          subject = f"QA APK Uploaded - Version {app_version}"
 
-          Version: ${{ steps.version.outputs.APP_VERSION }}
-          File: ${{ steps.prep.outputs.APK_NAME }}
-
-          Download Link:
-          ${{ steps.prep.outputs.DOWNLOAD_URL }}
-
-          body = f"""
+          body = """
           <html>
           <body>
               <p>Hello Team,<br><br>
               QA APK build completed.<br><br>
 
-              <b>Version:</b> ${{ steps.version.outputs.APP_VERSION }}<br>
-              <b>File:</b> ${{ steps.prep.outputs.APK_NAME }}<br><br>
+              <b>Version:</b> {}<br>
+              <b>File:</b> {}<br><br>
 
               <b>Download APK:</b><br>
-              <a href="{download_url}">Click here to download</a><br><br>
+              <a href="{}">Click here to download</a><br><br>
 
               Regards,<br>
               CI/CD Pipeline<br>
               </p>
           </body>
           </html>
-          """
+          """.format(app_version, apk_name, download_url)
 
           msg = MIMEText(body, "html")
           msg["From"] = sender
